@@ -8,8 +8,9 @@ export interface User {
 
 export interface Video {
   id: string;
-  user_id: string;
-  youtube_url: string;
+  userId: string;
+  youtubeUrl: string;
   title?: string;
-  created_at: string;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -9,21 +9,20 @@ All notable changes and implementations for this project.
 #### Added
 
 **Authentication System**
-- Email/password authentication using Supabase Auth
+- Email/password authentication using NextAuth
 - Sign-up page with validation (`app/auth/sign-up/page.tsx`)
 - Sign-in page with validation (`app/auth/sign-in/page.tsx`)
 - Auth context provider for state management (`lib/contexts/auth-context.tsx`)
-- Automatic profile creation on user signup via database trigger
+- Automatic profile creation on user signup via API
 - Session persistence across page refreshes
 - Secure sign-out functionality
 
 **Database Schema**
-- `profiles` table with user role and subscription status
-- `videos` table for YouTube URL storage
-- Row Level Security (RLS) policies on all tables
-- Database triggers for auto-profile creation
-- Updated_at timestamp automation
-- Indexes for query performance
+- SQLite database with Prisma ORM
+- User, Account, Session models for NextAuth
+- Video model for YouTube URL storage
+- Proper relationships and constraints
+- Type-safe database queries
 
 **Subscription Management**
 - Stripe integration in test mode

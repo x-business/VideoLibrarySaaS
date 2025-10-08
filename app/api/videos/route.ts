@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 function validateYouTubeUrl(url: string): boolean {
   const patterns = [
@@ -13,33 +15,30 @@ function validateYouTubeUrl(url: string): boolean {
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+    // Check if user has active subscription
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionStatus: true }
+    });
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user || user.subscriptionStatus !== 'active') {
+      return NextResponse.json({ error: 'Active subscription required' }, { status: 403 });
     }
 
-    const { data: videos, error } = await supabase
-      .from('videos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
+    const videos = await prisma.video.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' }
+    });
 
     return NextResponse.json({ videos });
   } catch (error) {
+    console.error('Failed to fetch videos:', error);
     return NextResponse.json(
       { error: 'Failed to fetch videos' },
       { status: 500 }
@@ -49,79 +48,55 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+    // Check if user has active subscription
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { subscriptionStatus: true }
+    });
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('subscription_status')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (!profile || profile.subscription_status !== 'active') {
-      return NextResponse.json(
-        { error: 'Active subscription required' },
-        { status: 403 }
-      );
+    if (!user || user.subscriptionStatus !== 'active') {
+      return NextResponse.json({ error: 'Active subscription required' }, { status: 403 });
     }
 
     const { youtube_url, title } = await req.json();
 
     if (!youtube_url) {
-      return NextResponse.json(
-        { error: 'YouTube URL is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'YouTube URL is required' }, { status: 400 });
     }
 
     if (!validateYouTubeUrl(youtube_url)) {
-      return NextResponse.json(
-        { error: 'Invalid YouTube URL' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
     }
 
-    const { data: existing } = await supabase
-      .from('videos')
-      .select('id')
-      .eq('youtube_url', youtube_url)
-      .maybeSingle();
+    // Check for duplicate URL
+    const existingVideo = await prisma.video.findFirst({
+      where: { 
+        youtubeUrl: youtube_url,
+        userId: session.user.id
+      }
+    });
 
-    if (existing) {
-      return NextResponse.json(
-        { error: 'This video URL has already been added' },
-        { status: 409 }
-      );
+    if (existingVideo) {
+      return NextResponse.json({ error: 'Video already exists' }, { status: 400 });
     }
 
-    const { data: video, error } = await supabase
-      .from('videos')
-      .insert({
-        user_id: user.id,
-        youtube_url,
+    const video = await prisma.video.create({
+      data: {
+        youtubeUrl: youtube_url,
         title: title || null,
-      })
-      .select()
-      .single();
+        userId: session.user.id,
+      }
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({ video }, { status: 201 });
+    return NextResponse.json({ video });
   } catch (error) {
+    console.error('Failed to add video:', error);
     return NextResponse.json(
       { error: 'Failed to add video' },
       { status: 500 }
@@ -131,18 +106,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -150,24 +116,28 @@ export async function DELETE(req: NextRequest) {
     const videoId = searchParams.get('id');
 
     if (!videoId) {
-      return NextResponse.json(
-        { error: 'Video ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from('videos')
-      .delete()
-      .eq('id', videoId)
-      .eq('user_id', user.id);
+    // Check if video belongs to user
+    const video = await prisma.video.findFirst({
+      where: { 
+        id: videoId,
+        userId: session.user.id
+      }
+    });
 
-    if (error) {
-      throw error;
+    if (!video) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
+
+    await prisma.video.delete({
+      where: { id: videoId }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Failed to delete video:', error);
     return NextResponse.json(
       { error: 'Failed to delete video' },
       { status: 500 }

@@ -6,37 +6,37 @@ This document contains detailed notes on implementation decisions, fixes applied
 
 ## Technology Choices
 
-### Authentication: Supabase Auth
+### Authentication: NextAuth
 
-**Decision**: Use Supabase Auth instead of NextAuth or custom implementation
-
-**Rationale**:
-- Tight integration with Supabase database
-- Built-in Row Level Security integration with `auth.uid()`
-- Less boilerplate code
-- Handles session management automatically
-- Easy to extend with OAuth providers in future
-
-**Trade-offs**:
-- Less flexibility than custom implementation
-- Requires Supabase as a dependency
-- Learning curve for Supabase-specific patterns
-
-### Database: Supabase (PostgreSQL)
-
-**Decision**: Use Supabase PostgreSQL instead of SQLite + Prisma
+**Decision**: Use NextAuth with credentials provider instead of Supabase Auth
 
 **Rationale**:
-- Requirement specified Supabase availability
-- Row Level Security provides database-level authorization
-- Managed hosting reduces operational complexity
-- Built-in auth integration
-- Production-ready out of the box
+- More flexible authentication system
+- Better integration with Next.js
+- Supports multiple providers
+- Easier to customize and extend
+- No vendor lock-in
 
 **Trade-offs**:
-- Requires internet connection for development
-- More complex setup than SQLite
-- Vendor lock-in to some extent
+- More setup required
+- Need to handle password hashing manually
+- Requires additional database models
+
+### Database: SQLite + Prisma
+
+**Decision**: Use SQLite with Prisma ORM instead of Supabase PostgreSQL
+
+**Rationale**:
+- Local development database
+- Type-safe database queries
+- Easy to deploy and backup
+- No external dependencies
+- Better for development and testing
+
+**Trade-offs**:
+- Less scalable than PostgreSQL
+- No built-in Row Level Security
+- Need to handle authorization in application layer
 
 ### Payments: Stripe
 

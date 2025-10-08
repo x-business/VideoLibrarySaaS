@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removed 'output: export' to enable proper server-side functionality for Supabase
+  // Removed 'output: export' to enable proper server-side functionality for NextAuth and Prisma
   eslint: {
     ignoreDuringBuilds: true,
   },
