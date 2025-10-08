@@ -82,10 +82,10 @@ export async function POST(req: NextRequest) {
             case 'invoice.payment_succeeded': {
               const invoice = event.data.object as Stripe.Invoice;
               
-              if (invoice.subscription) {
-                const subscriptionId = typeof invoice.subscription === 'string' 
-                  ? invoice.subscription 
-                  : invoice.subscription.id;
+              if ((invoice as any).subscription) {
+                const subscriptionId = typeof (invoice as any).subscription === 'string' 
+                  ? (invoice as any).subscription 
+                  : (invoice as any).subscription.id;
                 
                 await prisma.user.updateMany({
                   where: { stripeSubscriptionId: subscriptionId },
@@ -99,10 +99,10 @@ export async function POST(req: NextRequest) {
             case 'invoice.payment_failed': {
               const invoice = event.data.object as Stripe.Invoice;
               
-              if (invoice.subscription) {
-                const subscriptionId = typeof invoice.subscription === 'string' 
-                  ? invoice.subscription 
-                  : invoice.subscription.id;
+              if ((invoice as any).subscription) {
+                const subscriptionId = typeof (invoice as any).subscription === 'string' 
+                  ? (invoice as any).subscription 
+                  : (invoice as any).subscription.id;
                 
                 await prisma.user.updateMany({
                   where: { stripeSubscriptionId: subscriptionId },
