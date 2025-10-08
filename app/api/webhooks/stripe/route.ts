@@ -79,31 +79,39 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
-        
-        if (invoice.subscription) {
-          await prisma.user.updateMany({
-            where: { stripeSubscriptionId: invoice.subscription as string },
-            data: { subscriptionStatus: 'active' },
-          });
-          console.log('Payment succeeded for subscription:', invoice.subscription);
-        }
-        break;
-      }
+            case 'invoice.payment_succeeded': {
+              const invoice = event.data.object as Stripe.Invoice;
+              
+              if (invoice.subscription) {
+                const subscriptionId = typeof invoice.subscription === 'string' 
+                  ? invoice.subscription 
+                  : invoice.subscription.id;
+                
+                await prisma.user.updateMany({
+                  where: { stripeSubscriptionId: subscriptionId },
+                  data: { subscriptionStatus: 'active' },
+                });
+                console.log('Payment succeeded for subscription:', subscriptionId);
+              }
+              break;
+            }
 
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
-        
-        if (invoice.subscription) {
-          await prisma.user.updateMany({
-            where: { stripeSubscriptionId: invoice.subscription as string },
-            data: { subscriptionStatus: 'past_due' },
-          });
-          console.log('Payment failed for subscription:', invoice.subscription);
-        }
-        break;
-      }
+            case 'invoice.payment_failed': {
+              const invoice = event.data.object as Stripe.Invoice;
+              
+              if (invoice.subscription) {
+                const subscriptionId = typeof invoice.subscription === 'string' 
+                  ? invoice.subscription 
+                  : invoice.subscription.id;
+                
+                await prisma.user.updateMany({
+                  where: { stripeSubscriptionId: subscriptionId },
+                  data: { subscriptionStatus: 'past_due' },
+                });
+                console.log('Payment failed for subscription:', subscriptionId);
+              }
+              break;
+            }
 
       default:
         console.log('Unhandled event type:', event.type);
